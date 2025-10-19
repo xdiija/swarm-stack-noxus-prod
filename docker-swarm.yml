@@ -6,8 +6,6 @@ services:
     ports:
       - "80:80"
       - "443:443"
-    volumes:
-      - ./ssl:/etc/nginx/ssl
     environment:
       REDIS_HOST: redis
       REDIS_PORT: 6379
