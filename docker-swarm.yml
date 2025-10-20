@@ -4,9 +4,11 @@ services:
   traefik:
     image: traefik:v3.1
     command:
-      - "--providers.swarm.endpoint=unix:///var/run/docker.sock"
-      - "--providers.swarm.network=application_traefik-public"
-      - "--providers.swarm.exposedByDefault=false"
+      - "--providers.docker.swarm=true"
+      - "--providers.docker=true"
+      - "--providers.docker.endpoint=unix:///var/run/docker.sock"
+      - "--providers.docker.network=application_traefik-public"
+      - "--providers.docker.exposedbydefault=false"
       - "--entrypoints.web.address=:80"
       - "--entrypoints.websecure.address=:443"
       - "--certificatesresolvers.letsencrypt.acme.httpchallenge=true"
@@ -27,12 +29,6 @@ services:
       placement:
         constraints:
           - node.role == manager
-      labels:
-        - "traefik.enable=true"
-        - "traefik.http.routers.traefik.rule=Host(`traefik.noxusapi.shop`)"
-        - "traefik.http.routers.traefik.entrypoints=websecure"
-        - "traefik.http.routers.traefik.service=api@internal"
-        - "traefik.http.routers.traefik.tls.certresolver=letsencrypt"
 
   web:
     image: xdiija/php82-app-2025:v1
@@ -40,12 +36,15 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       REDIS_PASSWORD: myStrongPassword123!
+    # Remove any nginx config and use PHP built-in server
+    command: >
+      sh -c "
+      cd /var/www/app &&
+      php -S 0.0.0.0:8000 -t public
+      "
     networks:
       - traefik-public
       - app-network
-    depends_on:
-      - db
-      - redis
     deploy:
       replicas: 1
       restart_policy:
@@ -53,23 +52,18 @@ services:
       placement:
         constraints:
           - node.role == manager
-      resources:
-        limits:
-          cpus: "0.75"
-          memory: 512M
       labels:
         - "traefik.enable=true"
-        - "traefik.http.routers.laravel.rule=Host(`noxusapi.shop`)"
-        - "traefik.http.routers.laravel.entrypoints=websecure"
-        - "traefik.http.routers.laravel.tls.certresolver=letsencrypt"
-        - "traefik.http.services.laravel.loadbalancer.server.port=80"
+        - "traefik.http.routers.web.rule=Host(`noxusapi.shop`)"
+        - "traefik.http.routers.web.entrypoints=websecure"
+        - "traefik.http.routers.web.tls.certresolver=letsencrypt"
+        - "traefik.http.services.web.loadbalancer.server.port=8000"
 
   db:
     image: mysql:5.7.22
     environment:
       MYSQL_DATABASE: ${DB_DATABASE:-laravel}
       MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-root}
-      MYSQL_USER: ${DB_USERNAME:-root}
       MYSQL_PASSWORD: ${DB_PASSWORD:-root}
     volumes:
       - db_data:/var/lib/mysql
@@ -79,13 +73,6 @@ services:
       replicas: 1
       restart_policy:
         condition: on-failure
-      placement:
-        constraints:
-          - node.role == manager
-      resources:
-        limits:
-          cpus: "0.5"
-          memory: 512M
 
   redis:
     image: redis:7-alpine
@@ -96,23 +83,10 @@ services:
       replicas: 1
       restart_policy:
         condition: on-failure
-      placement:
-        constraints:
-          - node.role == manager
-      resources:
-        limits:
-          cpus: "0.25"
-          memory: 128M
-    healthcheck:
-      test: ["CMD", "redis-cli", "-a", "myStrongPassword123!", "ping"]
-      interval: 10s
-      timeout: 3s
-      retries: 5
 
 networks:
   traefik-public:
     driver: overlay
-    external: false
 
   app-network:
     driver: overlay
