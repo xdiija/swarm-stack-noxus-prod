@@ -4,40 +4,35 @@ services:
   traefik:
     image: traefik:v3.1
     command:
-      # Novo provedor Swarm
-      - "--providers.swarm=true"
       - "--providers.swarm.endpoint=unix:///var/run/docker.sock"
-      - "--providers.swarm.exposedbydefault=false"
-
-      # Entradas (HTTP e HTTPS)
+      - "--providers.swarm.network=traefik-public"
+      - "--providers.swarm.exposedByDefault=false"
       - "--entrypoints.web.address=:80"
       - "--entrypoints.websecure.address=:443"
-
-      # Let's Encrypt
       - "--certificatesresolvers.letsencrypt.acme.httpchallenge=true"
       - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
-      - "--certificatesresolvers.letsencrypt.acme.email=seu-email@dominio.com"
+      - "--certificatesresolvers.letsencrypt.acme.email=djalmaleandro@yahoo.com"
       - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
-
-      # Logs opcionais
+      - "--api.dashboard=true"
       - "--log.level=INFO"
-
     ports:
       - "80:80"
       - "443:443"
-
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      - traefik_letsencrypt:/letsencrypt
-
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+      - "traefik-certificates:/letsencrypt"
     networks:
-      - app-network
-
+      - traefik-public
     deploy:
       placement:
-        constraints: [node.role == manager]
-      restart_policy:
-        condition: on-failure
+        constraints:
+          - node.role == manager
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.api.rule=Host(`noxusapi.shop`)"
+        - "traefik.http.routers.api.entrypoints=websecure"
+        - "traefik.http.routers.api.service=api@internal"
+        - "traefik.http.routers.api.tls.certresolver=letsencrypt"
 
   web:
     image: xdiija/php82-app-2025:v1
@@ -46,7 +41,11 @@ services:
       REDIS_PORT: 6379
       REDIS_PASSWORD: myStrongPassword123!
     networks:
+      - traefik-public
       - app-network
+    depends_on:
+      - db
+      - redis
     deploy:
       replicas: 1
       restart_policy:
@@ -58,12 +57,9 @@ services:
         limits:
           cpus: "0.75"
           memory: 512M
-      update_config:
-        parallelism: 1
-        delay: 10s
       labels:
         - "traefik.enable=true"
-        - "traefik.http.routers.laravel.rule=Host(`noxusapi.shop`)"
+        - "traefik.http.routers.laravel.rule=Host(`api.seudominio.com`)"
         - "traefik.http.routers.laravel.entrypoints=websecure"
         - "traefik.http.routers.laravel.tls.certresolver=letsencrypt"
         - "traefik.http.services.laravel.loadbalancer.server.port=80"
@@ -116,9 +112,13 @@ services:
       retries: 5
 
 networks:
+  traefik-public:
+    external: false
+    driver: overlay
+
   app-network:
     driver: overlay
 
 volumes:
   db_data:
-  traefik_letsencrypt:
+  traefik-certificates:
