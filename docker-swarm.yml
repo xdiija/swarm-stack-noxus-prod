@@ -5,7 +5,7 @@ services:
     image: traefik:v3.1
     command:
       - "--providers.swarm.endpoint=unix:///var/run/docker.sock"
-      - "--providers.swarm.network=traefik-public"
+      - "--providers.swarm.network=application_traefik-public"
       - "--providers.swarm.exposedByDefault=false"
       - "--entrypoints.web.address=:80"
       - "--entrypoints.websecure.address=:443"
