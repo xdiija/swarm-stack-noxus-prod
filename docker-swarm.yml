@@ -4,11 +4,9 @@ services:
   traefik:
     image: traefik:v3.1
     command:
-      - "--providers.docker.swarm=true"
-      - "--providers.docker=true"
-      - "--providers.docker.endpoint=unix:///var/run/docker.sock"
-      - "--providers.docker.network=application_traefik-public"
-      - "--providers.docker.exposedbydefault=false"
+      - "--providers.swarm.endpoint=unix:///var/run/docker.sock"
+      - "--providers.swarm.network=application_traefik-public"
+      - "--providers.swarm.exposedByDefault=false"
       - "--entrypoints.web.address=:80"
       - "--entrypoints.websecure.address=:443"
       - "--certificatesresolvers.letsencrypt.acme.httpchallenge=true"
@@ -16,7 +14,7 @@ services:
       - "--certificatesresolvers.letsencrypt.acme.email=djalmaleandro@yahoo.com"
       - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
       - "--api.dashboard=true"
-      - "--log.level=DEBUG"
+      - "--log.level=INFO"
     ports:
       - "80:80"
       - "443:443"
@@ -31,14 +29,18 @@ services:
           - node.role == manager
       labels:
         - "traefik.enable=true"
-        - "traefik.http.routers.api.rule=Host(`traefik.noxusapi.shop`)"
-        - "traefik.http.routers.api.service=api@internal"
-        - "traefik.http.routers.api.entrypoints=websecure"
-        - "traefik.http.routers.api.tls.certresolver=letsencrypt"
-        - "traefik.http.services.api.loadbalancer.server.port=8080"
+        - "traefik.http.routers.traefik.rule=Host(`traefik.noxusapi.shop`)"
+        - "traefik.http.routers.traefik.entrypoints=websecure"
+        - "traefik.http.routers.traefik.service=api@internal"
+        - "traefik.http.routers.traefik.tls.certresolver=letsencrypt"
 
   web:
-    image: xdiija/php82-app-2025:v1
+    image: xdiija/php82-app-2025:latest
+    build:
+      context: .
+      dockerfile: ./docker/Dockerfile
+      args:
+        PHP_VERSION: "8.2.4"
     environment:
       REDIS_HOST: redis
       REDIS_PORT: 6379
@@ -46,6 +48,9 @@ services:
     networks:
       - traefik-public
       - app-network
+    depends_on:
+      - db
+      - redis
     deploy:
       replicas: 1
       restart_policy:
@@ -53,18 +58,23 @@ services:
       placement:
         constraints:
           - node.role == manager
+      resources:
+        limits:
+          cpus: "0.75"
+          memory: 512M
       labels:
         - "traefik.enable=true"
-        - "traefik.http.routers.web.rule=Host(`noxusapi.shop`)"
-        - "traefik.http.routers.web.entrypoints=websecure"
-        - "traefik.http.routers.web.tls.certresolver=letsencrypt"
-        - "traefik.http.services.web.loadbalancer.server.port=80"
+        - "traefik.http.routers.laravel.rule=Host(`noxusapi.shop`)"
+        - "traefik.http.routers.laravel.entrypoints=websecure"
+        - "traefik.http.routers.laravel.tls.certresolver=letsencrypt"
+        - "traefik.http.services.laravel.loadbalancer.server.port=9000"
 
   db:
     image: mysql:5.7.22
     environment:
       MYSQL_DATABASE: ${DB_DATABASE:-laravel}
       MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-root}
+      MYSQL_USER: ${DB_USERNAME:-root}
       MYSQL_PASSWORD: ${DB_PASSWORD:-root}
     volumes:
       - db_data:/var/lib/mysql
@@ -74,6 +84,13 @@ services:
       replicas: 1
       restart_policy:
         condition: on-failure
+      placement:
+        constraints:
+          - node.role == manager
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
 
   redis:
     image: redis:7-alpine
@@ -84,9 +101,22 @@ services:
       replicas: 1
       restart_policy:
         condition: on-failure
+      placement:
+        constraints:
+          - node.role == manager
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 128M
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
 
 networks:
   traefik-public:
+    external: false
     driver: overlay
 
   app-network:
