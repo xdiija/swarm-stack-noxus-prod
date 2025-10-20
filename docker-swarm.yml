@@ -4,9 +4,10 @@ services:
   traefik:
     image: traefik:v3.1
     command:
-      - "--providers.docker.swarm=true"
+      # Correct provider configuration for Traefik v3
       - "--providers.docker=true"
       - "--providers.docker.endpoint=unix:///var/run/docker.sock"
+      - "--providers.docker.swarmMode=true"
       - "--providers.docker.network=application_traefik-public"
       - "--providers.docker.exposedbydefault=false"
       - "--entrypoints.web.address=:80"
@@ -36,7 +37,6 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       REDIS_PASSWORD: myStrongPassword123!
-    # Remove any nginx config and use PHP built-in server
     command: >
       sh -c "
       cd /var/www/app &&
