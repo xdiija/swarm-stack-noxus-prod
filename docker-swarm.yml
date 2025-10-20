@@ -59,7 +59,7 @@ services:
           memory: 512M
       labels:
         - "traefik.enable=true"
-        - "traefik.http.routers.laravel.rule=Host(`api.seudominio.com`)"
+        - "traefik.http.routers.laravel.rule=Host(`noxusapi.shop`)"
         - "traefik.http.routers.laravel.entrypoints=websecure"
         - "traefik.http.routers.laravel.tls.certresolver=letsencrypt"
         - "traefik.http.services.laravel.loadbalancer.server.port=80"
