@@ -4,24 +4,35 @@ services:
   traefik:
     image: traefik:v3.1
     command:
-      - "--providers.docker.swarmMode=true"
-      - "--providers.docker.endpoint=unix:///var/run/docker.sock"
-      - "--providers.docker.exposedbydefault=false"
+      # Novo provedor Swarm
+      - "--providers.swarm=true"
+      - "--providers.swarm.endpoint=unix:///var/run/docker.sock"
+      - "--providers.swarm.exposedbydefault=false"
+
+      # Entradas (HTTP e HTTPS)
       - "--entrypoints.web.address=:80"
       - "--entrypoints.websecure.address=:443"
+
+      # Let's Encrypt
       - "--certificatesresolvers.letsencrypt.acme.httpchallenge=true"
       - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
-      - "--certificatesresolvers.letsencrypt.acme.email=djalmaleandro@yahoo.com"
+      - "--certificatesresolvers.letsencrypt.acme.email=seu-email@dominio.com"
       - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
+
+      # Logs opcionais
       - "--log.level=INFO"
+
     ports:
       - "80:80"
       - "443:443"
+
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - traefik_letsencrypt:/letsencrypt
+
     networks:
       - app-network
+
     deploy:
       placement:
         constraints: [node.role == manager]
