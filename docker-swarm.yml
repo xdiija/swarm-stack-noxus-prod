@@ -36,12 +36,7 @@ services:
         - "traefik.http.services.traefik.loadbalancer.server.port=8080"
 
   web:
-    image: xdiija/php82-app-2025:latest
-    build:
-      context: .
-      dockerfile: ./docker/Dockerfile
-      args:
-        PHP_VERSION: "8.2.4"
+    image: xdiija/php82-app-2025:v1
     environment:
       REDIS_HOST: redis
       REDIS_PORT: 6379
@@ -68,7 +63,7 @@ services:
         - "traefik.http.routers.laravel.rule=Host(`noxusapi.shop`)"
         - "traefik.http.routers.laravel.entrypoints=websecure"
         - "traefik.http.routers.laravel.tls.certresolver=letsencrypt"
-        - "traefik.http.services.laravel.loadbalancer.server.port=9000"
+        - "traefik.http.services.laravel.loadbalancer.server.port=80"
 
   db:
     image: mysql:5.7.22
@@ -110,15 +105,15 @@ services:
           cpus: "0.25"
           memory: 128M
     healthcheck:
-      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      test: ["CMD", "redis-cli", "-a", "myStrongPassword123!", "ping"]
       interval: 10s
       timeout: 3s
       retries: 5
 
 networks:
   traefik-public:
-    external: false
     driver: overlay
+    external: false
 
   app-network:
     driver: overlay
