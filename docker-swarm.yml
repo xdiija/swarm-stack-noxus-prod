@@ -5,7 +5,7 @@ services:
     image: traefik:v3.1
     command:
       - "--providers.swarm.endpoint=unix:///var/run/docker.sock"
-      - "--providers.swarm.network=application_traefik-public"
+      - "--providers.swarm.network=traefik-public"
       - "--providers.swarm.exposedByDefault=false"
       - "--entrypoints.web.address=:80"
       - "--entrypoints.websecure.address=:443"
@@ -29,10 +29,10 @@ services:
           - node.role == manager
       labels:
         - "traefik.enable=true"
-        - "traefik.http.routers.api.rule=Host(`noxusapi.shop`)"
-        - "traefik.http.routers.api.entrypoints=websecure"
-        - "traefik.http.routers.api.service=api@internal"
-        - "traefik.http.routers.api.tls.certresolver=letsencrypt"
+        - "traefik.http.routers.traefik-dashboard.rule=Host(`traefik.noxusapi.shop`)"
+        - "traefik.http.routers.traefik-dashboard.entrypoints=websecure"
+        - "traefik.http.routers.traefik-dashboard.service=api@internal"
+        - "traefik.http.routers.traefik-dashboard.tls.certresolver=letsencrypt"
 
   web:
     image: xdiija/php82-app-2025:v1
@@ -59,7 +59,7 @@ services:
           memory: 512M
       labels:
         - "traefik.enable=true"
-        - "traefik.http.routers.laravel.rule=Host(`noxusapi.shop`)"
+        - "traefik.http.routers.laravel.rule=Host(`api.noxusapi.shop`)"
         - "traefik.http.routers.laravel.entrypoints=websecure"
         - "traefik.http.routers.laravel.tls.certresolver=letsencrypt"
         - "traefik.http.services.laravel.loadbalancer.server.port=80"
@@ -73,8 +73,6 @@ services:
       MYSQL_PASSWORD: ${DB_PASSWORD:-root}
     volumes:
       - db_data:/var/lib/mysql
-    ports:
-      - "3388:3306"
     networks:
       - app-network
     deploy:
